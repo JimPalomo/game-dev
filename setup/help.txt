@@ -1,0 +1,11 @@
+Install SFML: sudo apt-get install libsfml-dev
+
+Compile: g++ -c main.cpp
+
+Link & Create SFML: g++ main.o -o sfml-app -lsfml-graphics -lsfml-window -lsfml-system
+
+Run SFML: ./smfl-app
+
+https://www.sfml-dev.org/tutorials/2.5/start-linux.php
+
+Resolution (default): (1919, 1079)
