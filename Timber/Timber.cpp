@@ -1,7 +1,15 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <sstream>
 
 using namespace sf;
+
+// Function Declarations
+void updateBranches(int seed);
+const int NUM_BRANCHES = 6;
+Sprite branches[NUM_BRANCHES];
+enum class side{ LEFT, RIGHT, NONE};    // player from tree
+side branchPositions[NUM_BRANCHES];   
 
 int main() {
     /* High resolution */
@@ -115,9 +123,84 @@ int main() {
 
     scoreText.setPosition(20, 20);
 
+    // branches
+    Texture textureBranch;
+    textureBranch.loadFromFile("graphics/branch.png");
+    for (int i = 0; i < NUM_BRANCHES; i++) {
+        branches[i].setTexture(textureBranch);
+        branches[i].setPosition(-2000, -2000);
+        branches[i].setOrigin(220, 20);
+    }
+
+    // player
+    Texture texturePlayer;
+    texturePlayer.loadFromFile("graphics/player.png");
+    Sprite spritePlayer;
+    spritePlayer.setTexture(texturePlayer);
+    spritePlayer.setPosition(580, 720);
+    side playerSide = side::LEFT;   // start left side
+
+    // gravestone
+    Texture textureRIP;
+    textureRIP.loadFromFile("graphics/rip.png");
+    Sprite spriteRIP;
+    spriteRIP.setTexture(textureRIP);
+    spriteRIP.setPosition(600, 860);
+
+    // axe
+    Texture textureAxe;
+    textureAxe.loadFromFile("graphics/axe.png");
+    Sprite spriteAxe;
+    spriteAxe.setTexture(textureAxe);
+    spriteAxe.setPosition(700, 830);
+
+    // axe w/ tree
+    const float AXE_POSITION_LEFT = 700;
+    const float AXE_POSITION_RIGHT = 1075;
+
+    // flying log
+    Texture textureLog;
+    textureLog.loadFromFile("graphics/log.png");
+    Sprite spriteLog;
+    spriteLog.setTexture(textureLog);
+    spriteLog.setPosition(810, 720);
+    bool logActive = false; // log variables
+    float logSpeedX = 1000;
+    float logSpeedY = -1500;
+
+    // player input
+    bool acceptInput = false;
+
+    // chop sound
+	SoundBuffer chopBuffer;
+	chopBuffer.loadFromFile("sound/chop.wav");
+	Sound chop;
+	chop.setBuffer(chopBuffer);
+
+    // death sound
+	SoundBuffer deathBuffer;
+	deathBuffer.loadFromFile("sound/death.wav");
+	Sound death;
+	death.setBuffer(deathBuffer);
+
+    // out of time sound
+	SoundBuffer ootBuffer;
+	ootBuffer.loadFromFile("sound/out_of_time.wav");
+	Sound outOfTime;
+	outOfTime.setBuffer(ootBuffer);       
 
     // Coordinate (1919, 1079)
     while (window.isOpen()) {
+
+        Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == Event::KeyReleased && !paused) {
+                acceptInput = true;             // listen for key press
+
+                spriteAxe.setPosition(2000,     // hide axe
+                    spriteAxe.getPosition().y);
+            }
+        }
 		/*
 		****************************************
 		Handle the players input
@@ -136,6 +219,68 @@ int main() {
             // reset 
             score = 0;
             timeRemaining = 5;
+
+            // clear branches
+            for (int i = 1; i < NUM_BRANCHES; i++) {
+                branchPositions[i] = side::NONE;
+            }
+
+            spriteRIP.setPosition(675, 2000);   // hidden RIP stone
+
+            spritePlayer.setPosition(580, 720); // player
+
+            acceptInput = true;
+        }
+
+        // when accepting player input
+        if (acceptInput) {
+            if (Keyboard::isKeyPressed(Keyboard::D)) {
+                playerSide = side::RIGHT;
+
+                score++;
+
+                // add time
+                timeRemaining += (2 / score) + .15;
+
+                spriteAxe.setPosition(AXE_POSITION_RIGHT,
+                    spriteAxe.getPosition().y);
+
+                spritePlayer.setPosition(1200, 720);
+
+                updateBranches(score);              // update branches
+
+                spriteLog.setPosition(810, 720);    // flying log
+                logSpeedX = -5000;
+                logActive = true;
+
+                acceptInput = false;
+
+                chop.play();                        // chop sound
+            }
+
+            if (Keyboard::isKeyPressed(Keyboard::A)) {
+                playerSide = side::LEFT;
+
+                score++;
+
+                // add time
+                timeRemaining += (2 / score) + .15;
+
+                spriteAxe.setPosition(AXE_POSITION_LEFT,
+                    spriteAxe.getPosition().y);
+
+                spritePlayer.setPosition(580, 720);
+
+                updateBranches(score);              // update branches
+
+                spriteLog.setPosition(810, 720);    // flying log
+                logSpeedX = 5000;
+                logActive = true;
+
+                acceptInput = false;
+
+                chop.play();                        // chop sound
+            }
         }
 
 		/*
@@ -168,6 +313,9 @@ int main() {
 					textRect.height / 2.0f);
 
 				messageText.setPosition(1920 / 2.0f, 1080 / 2.0f);
+
+                // out of time sound
+				outOfTime.play();                
             }
 
             // setup bee
@@ -272,13 +420,75 @@ int main() {
                 if (spriteCloud3.getPosition().x > 1920) {
                     cloud3Active = false;   // prep for new frame
                 }                
-            }
-        }       
+            }       
 
-        // update score
-        std::stringstream ss;
-        ss << "Score = " << score;
-        scoreText.setString(ss.str());       
+            // update score
+            std::stringstream ss;
+            ss << "Score = " << score;
+            scoreText.setString(ss.str());       
+
+            // update branch
+            for (int i = 0; i < NUM_BRANCHES; i++) {
+                float height = i * 150;
+
+                if (branchPositions[i] == side::LEFT) {
+                    branches[i].setPosition(610, height);   // move left
+                    branches[i].setRotation(180);           // flip 
+                }
+
+                else if (branchPositions[i] == side::RIGHT) {
+                    branches[i].setPosition(1330, height);  // move right
+                    branches[i].setRotation(0);             // default
+                }
+
+                else {
+                    branches[i].setPosition(3000, height);
+                }
+            }
+
+            if (logActive) {
+                spriteLog.setPosition(
+                    spriteLog.getPosition().x + (logSpeedX * dt.asSeconds()),
+                    spriteLog.getPosition().y + (logSpeedY * dt.asSeconds()));
+
+                // bee at right hand side of screen
+                if (spriteLog.getPosition().x < -100 || 
+                    spriteLog.getPosition().x > 2000) {
+
+                        // set up for new frame
+                        logActive = false;
+                        spriteLog.setPosition(810, 720);
+                    }
+            }
+
+            // player death by branch
+			if (branchPositions[5] == playerSide)
+			{
+				paused = true;
+				acceptInput = false;
+
+				spriteRIP.setPosition(525, 760);    // replace player w/ RIP
+				spritePlayer.setPosition(2000, 660);    
+
+				messageText.setString("SQUISHED!!");    // death text
+
+				// Center it on the screen
+				FloatRect textRect = messageText.getLocalBounds();
+
+				messageText.setOrigin(textRect.left +
+					textRect.width / 2.0f,
+					textRect.top + textRect.height / 2.0f);
+
+				messageText.setPosition(1920 / 2.0f,
+					1080 / 2.0f);
+
+				// Play the death sound
+				death.play();
+
+
+			}            
+
+        } // End if (!paused)
 
 		/*
 		****************************************
@@ -297,8 +507,25 @@ int main() {
         window.draw(spriteCloud2);
         window.draw(spriteCloud3);
 
+        // draw branches
+        for (int i = 0; i < NUM_BRANCHES; i++) {
+            window.draw(branches[i]);
+        }
+
         // draw tree
         window.draw(spriteTree);
+
+        // draw player
+        window.draw(spritePlayer);
+
+        // draw axe
+        window.draw(spriteAxe);
+
+        // draw flying log
+        window.draw(spriteLog);
+
+        // draw gravestone
+        window.draw(spriteRIP);
 
         // draw bee
         window.draw(spriteBee);
@@ -317,4 +544,29 @@ int main() {
     }
 
     return 0;
+}
+
+// Function Definitions
+void updateBranches(int seed) {
+    for (int i = NUM_BRANCHES - 1; i > 0; i--) {
+        branchPositions[i] = branchPositions[i - 1];
+    }
+
+    srand((int)time(0) + seed);
+    int r = (rand() % 5);   // rand num 0-4
+
+    switch (r) {
+        case 0:
+            branchPositions[0] = side::LEFT;
+            break;
+  
+        case 1:
+            branchPositions[0] = side::RIGHT;
+            break;
+  
+        default:
+            branchPositions[0] = side::NONE;
+            break;
+  
+    }
 }
